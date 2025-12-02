@@ -8,7 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
 import { auth, db } from '@/config/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, addDoc } from 'firebase/firestore';
 
 export default function HomeScreen() {
   // Firebase connection test
@@ -21,14 +21,29 @@ export default function HomeScreen() {
         console.log('🔥 Firebase App Name:', auth.app.name);
         console.log('🔥 Firebase Project ID:', auth.app.options.projectId);
         
-        // Test Firestore connection by trying to read a collection
+        // Test Firestore connection by creating a document in "Test" collection
         try {
-          const testCollection = collection(db, 'test');
-          await getDocs(testCollection);
-          console.log('✅ Firestore connection successful!');
+          const testCollection = collection(db, 'Test');
+          
+          // Create a document with TestMain field
+          const docRef = await addDoc(testCollection, {
+            TestMain: 'This is a test text value'
+          });
+          
+          console.log('✅ Firestore write successful!');
+          console.log('📝 Document ID:', docRef.id);
+          console.log('📝 Collection: Test');
+          console.log('📝 Field: TestMain = "This is a test text value"');
+          
+          // Verify by reading it back
+          const snapshot = await getDocs(testCollection);
+          console.log('📖 Documents in Test collection:', snapshot.size);
+          snapshot.forEach((doc) => {
+            console.log('📄 Document:', doc.id, '=>', doc.data());
+          });
         } catch (firestoreError: any) {
-          console.log('⚠️ Firestore test:', firestoreError.message);
-          console.log('ℹ️ Note: This is normal if the "test" collection doesn\'t exist');
+          console.error('❌ Firestore test error:', firestoreError.message);
+          console.error('❌ Error code:', firestoreError.code);
         }
         
         console.log('✅ Firebase initialization complete!');
