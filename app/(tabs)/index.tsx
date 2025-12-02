@@ -1,13 +1,44 @@
 import { Image } from 'expo-image';
 import { Platform, StyleSheet } from 'react-native';
+import { useEffect } from 'react';
 
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
+import { auth, db } from '@/config/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 export default function HomeScreen() {
+  // Firebase connection test
+  useEffect(() => {
+    const testFirebase = async () => {
+      try {
+        console.log('🔥 Firebase Test Starting...');
+        console.log('🔥 Firebase Auth:', auth ? '✅ Connected' : '❌ Not connected');
+        console.log('🔥 Firestore DB:', db ? '✅ Connected' : '❌ Not connected');
+        console.log('🔥 Firebase App Name:', auth.app.name);
+        console.log('🔥 Firebase Project ID:', auth.app.options.projectId);
+        
+        // Test Firestore connection by trying to read a collection
+        try {
+          const testCollection = collection(db, 'test');
+          await getDocs(testCollection);
+          console.log('✅ Firestore connection successful!');
+        } catch (firestoreError: any) {
+          console.log('⚠️ Firestore test:', firestoreError.message);
+          console.log('ℹ️ Note: This is normal if the "test" collection doesn\'t exist');
+        }
+        
+        console.log('✅ Firebase initialization complete!');
+      } catch (error: any) {
+        console.error('❌ Firebase initialization error:', error.message);
+      }
+    };
+    
+    testFirebase();
+  }, []);
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
