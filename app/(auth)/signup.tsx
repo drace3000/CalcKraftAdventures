@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  Image,
   ImageBackground,
   Keyboard,
   KeyboardAvoidingView,
@@ -16,6 +15,7 @@ import {
   Pressable,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -33,16 +33,26 @@ export default function SignUpScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [, setKeyboardVisible] = useState(false);
 
   const { signUp, signOut, setAuthRedirectSuspended } = useAuth();
-  const drag = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const insets = useSafeAreaInsets();
+  const panelRestOffset = useRef(
+    Platform.select({
+      ios: Math.max(60, insets.bottom + 20),
+      android: Math.max(80, insets.bottom + 40),
+    }) ?? 80,
+  );
+  const drag = useRef(new Animated.ValueXY({ x: 0, y: panelRestOffset.current })).current;
   const backBounce = useRef(new Animated.Value(1)).current;
   const backWiggle = useRef(new Animated.Value(0)).current;
-  const panelLift = useRef(new Animated.Value(0)).current;
   const ctaDrag = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const keyboardVisibleRef = useRef(false);
   const ctaStartPosition = useRef({ x: 0, y: 0 });
+  const keyboardVerticalOffset =
+    Platform.select({
+      ios: insets.top + 48,
+      android: insets.top + 20,
+    }) ?? 0;
 
   useEffect(() => {
     const animate = () => {
@@ -58,28 +68,11 @@ export default function SignUpScreen() {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const animatePanel = (toValue: number, duration = 250) => {
-      Animated.timing(panelLift, {
-        toValue,
-        duration,
-        useNativeDriver: false,
-      }).start();
-    };
-
-    const showSubscription = Keyboard.addListener(showEvent, (event) => {
-      const keyboardHeight = event?.endCoordinates?.height ?? 0;
-      const offset = Math.max(keyboardHeight - 100, 0);
-      const animationDuration = Platform.OS === 'ios' ? event?.duration ?? 250 : 250;
-      const adjustedOffset = offset > 0 ? Math.max(offset - 45, 0) : 0;
-      animatePanel(-adjustedOffset, animationDuration);
-      setKeyboardVisible(true);
+    const showSubscription = Keyboard.addListener(showEvent, () => {
       keyboardVisibleRef.current = true;
     });
 
-    const hideSubscription = Keyboard.addListener(hideEvent, (event) => {
-      const animationDuration = Platform.OS === 'ios' ? event?.duration ?? 200 : 200;
-      animatePanel(0, animationDuration);
-      setKeyboardVisible(false);
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
       keyboardVisibleRef.current = false;
       ctaStartPosition.current = { x: 0, y: 0 };
       Animated.spring(ctaDrag, {
@@ -92,7 +85,7 @@ export default function SignUpScreen() {
       showSubscription.remove();
       hideSubscription.remove();
     };
-  }, [panelLift, ctaDrag]);
+  }, [ctaDrag]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -109,14 +102,13 @@ export default function SignUpScreen() {
       ),
       onPanResponderRelease: () => {
         Animated.spring(drag, {
-          toValue: { x: 0, y: 0 },
+          toValue: { x: 0, y: panelRestOffset.current },
           useNativeDriver: false,
           bounciness: 12,
         }).start();
       },
     }),
   ).current;
-  const dragYWithKeyboard = Animated.add(drag.y, panelLift);
   const ctaPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => keyboardVisibleRef.current,
@@ -202,121 +194,123 @@ export default function SignUpScreen() {
   return (
     <ImageBackground source={heroArtwork} style={styles.background} resizeMode="cover">
       <View style={styles.overlay} />
-              <AnimatedPressable
+      <AnimatedPressable
         style={styles.globalBackButton}
         onPress={() => router.replace('/(auth)/signin')}
         onPressIn={() => Animated.spring(backBounce, { toValue: 1.1, useNativeDriver: true }).start()}
         onPressOut={() => Animated.spring(backBounce, { toValue: 1, useNativeDriver: true }).start()}>
-                <Animated.Image
-                  source={backArtwork}
-                  style={[
-                    styles.globalBackImage,
-                    {
-                      transform: [
-                        { scale: backBounce },
-                        { translateX: backWiggle.interpolate({ inputRange: [-1, 1], outputRange: [-10, 10] }) },
-                      ],
-                    },
-                  ]}
-                />
+        <Animated.Image
+          source={backArtwork}
+          style={[
+            styles.globalBackImage,
+            {
+              transform: [
+                { scale: backBounce },
+                { translateX: backWiggle.interpolate({ inputRange: [-1, 1], outputRange: [-10, 10] }) },
+              ],
+            },
+          ]}
+        />
       </AnimatedPressable>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          <Animated.View
-            style={[styles.panelWrapper, { transform: [{ translateX: drag.x }, { translateY: dragYWithKeyboard }] }]}
-            {...panResponder.panHandlers}>
-            <View style={styles.panel}>
-            {error ? (
-              <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle" color="#B71C1C" size={18} />
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
-
-            <InputRow
-              icon="sparkles"
-              placeholder="ADVENTURER NAME"
-              value={displayName}
-              onChangeText={setDisplayName}
-              editable={!loading}
-            />
-            <InputRow
-              icon="mail"
-              placeholder="ADVENTURER EMAIL"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!loading}
-            />
-            <InputRow
-              icon="key"
-              placeholder="SECRET PASSWORD"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              editable={!loading}
-              accessory={
-                <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)}>
-                  <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="#C75C02" />
-                </TouchableOpacity>
-              }
-            />
-            <InputRow
-              icon="lock-closed"
-              placeholder="CONFIRM PASSWORD"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showConfirmPassword}
-              autoCapitalize="none"
-              editable={!loading}
-              accessory={
-                <TouchableOpacity onPress={() => setShowConfirmPassword((prev) => !prev)}>
-                  <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={22} color="#C75C02" />
-                </TouchableOpacity>
-              }
-            />
-
-            <Animated.View
-              style={[
-                styles.ctaSection,
-                { transform: [{ translateX: ctaDrag.x }, { translateY: ctaDrag.y }] },
-              ]}
-              {...ctaPanResponder.panHandlers}>
-              <TouchableOpacity
-                style={[styles.primaryButton, loading && styles.disabledButton]}
-                onPress={handleSubmit}
-                activeOpacity={0.9}
-                disabled={loading}>
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <View style={styles.buttonContent}>
-                    <Ionicons name="shield" size={22} color="#fff" style={styles.buttonIcon} />
-                    <Text style={styles.buttonText}>CREATE HERO (SIGN UP)</Text>
+      <Animated.View
+        style={[styles.draggableContainer, { transform: [{ translateX: drag.x }, { translateY: drag.y }] }]}
+        {...panResponder.panHandlers}>
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={keyboardVerticalOffset}>
+          <ScrollView
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 + insets.bottom }]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}>
+            <View style={styles.panelWrapper}>
+              <View style={styles.panel}>
+                {error ? (
+                  <View style={styles.errorBanner}>
+                    <Ionicons name="alert-circle" color="#B71C1C" size={18} />
+                    <Text style={styles.errorText}>{error}</Text>
                   </View>
-                )}
-              </TouchableOpacity>
+                ) : null}
 
-              <TouchableOpacity
-                style={styles.linkButton}
-                onPress={() => router.replace('/(auth)/signin')}
-                disabled={loading}>
-                <Text style={styles.linkText}>Already have an account? START YOUR QUEST!</Text>
-              </TouchableOpacity>
-            </Animated.View>
+                <InputRow
+                  icon="sparkles"
+                  placeholder="ADVENTURER NAME"
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  editable={!loading}
+                />
+                <InputRow
+                  icon="mail"
+                  placeholder="ADVENTURER EMAIL"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  editable={!loading}
+                />
+                <InputRow
+                  icon="key"
+                  placeholder="SECRET PASSWORD"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  editable={!loading}
+                  accessory={
+                    <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)}>
+                      <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="#C75C02" />
+                    </TouchableOpacity>
+                  }
+                />
+                <InputRow
+                  icon="lock-closed"
+                  placeholder="CONFIRM PASSWORD"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                  editable={!loading}
+                  accessory={
+                    <TouchableOpacity onPress={() => setShowConfirmPassword((prev) => !prev)}>
+                      <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={22} color="#C75C02" />
+                    </TouchableOpacity>
+                  }
+                />
 
+                <Animated.View
+                  style={[
+                    styles.ctaSection,
+                    { transform: [{ translateX: ctaDrag.x }, { translateY: ctaDrag.y }] },
+                  ]}
+                  {...ctaPanResponder.panHandlers}>
+                  <TouchableOpacity
+                    style={[styles.primaryButton, loading && styles.disabledButton]}
+                    onPress={handleSubmit}
+                    activeOpacity={0.9}
+                    disabled={loading}>
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <View style={styles.buttonContent}>
+                        <Ionicons name="shield" size={22} color="#fff" style={styles.buttonIcon} />
+                        <Text style={styles.buttonText}>CREATE HERO (SIGN UP)</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.linkButton}
+                    onPress={() => router.replace('/(auth)/signin')}
+                    disabled={loading}>
+                    <Text style={styles.linkText}>Already have an account? START YOUR QUEST!</Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              </View>
             </View>
-          </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Animated.View>
     </ImageBackground>
   );
 }
@@ -361,6 +355,9 @@ const styles = StyleSheet.create({
     paddingTop: 64,
     paddingBottom: 120,
     alignItems: 'center',
+  },
+  draggableContainer: {
+    flex: 1,
   },
   panelWrapper: {
     width: '100%',
