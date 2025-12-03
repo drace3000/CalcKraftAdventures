@@ -11,6 +11,23 @@ A React Native app built with Expo and Firebase integration.
 - 🎨 Expo Router with file-based routing
 - 📱 Cross-platform (iOS, Android, Web)
 
+## Styling (NativeWind + Tailwind)
+
+This project uses [NativeWind](https://www.nativewind.dev/) to bring Tailwind-style utility classes to React Native.
+
+1. Global Tailwind layers are defined in `global.css`, which is imported in `app/_layout.tsx`.
+2. Tailwind scans files under `app` and `components` as configured in `tailwind.config.js`.
+3. TypeScript picks up Tailwind's type helpers via `nativewind/types` in `tsconfig.json`.
+4. When creating components, use the `className` prop (provided by NativeWind) alongside standard React Native components:
+
+```tsx
+<View className="flex-1 items-center justify-center bg-slate-900">
+  <Text className="text-white text-xl font-semibold">Welcome to CalcKraft</Text>
+</View>
+```
+
+Run `npm install` after pulling to ensure the NativeWind/Tailwind packages are installed.
+
 ## Firebase Setup
 
 This project uses Firebase for backend services. The Firebase configuration is set up in `config/firebase.ts`.
@@ -63,3 +80,5 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+

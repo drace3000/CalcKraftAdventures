@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
+import '@/global.css';
 import '@/config/firebase';
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
