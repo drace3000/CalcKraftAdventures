@@ -34,6 +34,37 @@ This project uses Firebase for backend services. The Firebase configuration is s
 
 **Note:** For production, consider moving Firebase credentials to environment variables for better security.
 
+## ElevenLabs Voice Setup
+
+The theme selection screen uses ElevenLabs for narration. Supply your API key via environment variable:
+
+```
+ELEVENLABS_API_KEY=your_api_key
+```
+
+Restart Expo after updating the `.env` file so `app.config.ts` can inject the value into `expo-constants`.
+
+## Theme Narrations & Voice IDs in Firestore
+
+Theme narration text and ElevenLabs voice IDs now live in Firestore. Create the following collections in your Firebase project:
+
+1. `themeNarrations` – one document per theme (document ID: `blockland`, `princess`, `unicorn`)
+   ```json
+   {
+     "text": "Welcome to Blockland..."
+   }
+   ```
+2. `themeProperties` – one document per theme with at least the ElevenLabs voice ID
+   ```json
+   {
+     "elevenLabsVoiceId": "voice-id-from-elevenlabs",
+     "title": "Blockland",
+     "accent": "#FFB300"
+   }
+   ```
+
+The app reads these documents at runtime. If a document is missing or invalid, users see an error popup and narration playback is disabled for that theme until Firestore data becomes available.
+
 ## Get started
 
 1. Install dependencies

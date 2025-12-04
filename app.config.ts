@@ -51,9 +51,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   extra: {
     ...config.extra,
     elevenLabsApiKey: process.env.ELEVENLABS_API_KEY ?? '',
-    elevenLabsVoiceIdBlockland: process.env.ELEVENLABS_VOICE_ID_BLOCKLAND ?? '',
-    elevenLabsVoiceIdPrincess: process.env.ELEVENLABS_VOICE_ID_PRINCESS ?? '',
-    elevenLabsVoiceIdUnicorn: process.env.ELEVENLABS_VOICE_ID_UNICORN ?? '',
   },
 });
 

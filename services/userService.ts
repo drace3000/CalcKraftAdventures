@@ -1,8 +1,7 @@
 import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 
+import { ThemeId } from '@/constants/themeData';
 import { db } from '@/config/firebase';
-
-export type ThemeId = 'blockland' | 'princess' | 'unicorn';
 
 export interface UserProfile {
   displayName: string;
@@ -53,4 +52,8 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     preferredTheme: data.preferredTheme ?? 'blockland',
   };
 }
+
+
+
+
 

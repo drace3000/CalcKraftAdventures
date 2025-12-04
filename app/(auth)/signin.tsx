@@ -180,7 +180,7 @@ export default function SignInScreen() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <View style={styles.buttonContent}>
-                  <Ionicons name="sword" size={22} color="#fff" style={styles.buttonIcon} />
+                  <Ionicons name="shield" size={22} color="#fff" style={styles.buttonIcon} />
                   <Text style={styles.buttonText}>START YOUR QUEST! (SIGN IN)</Text>
                 </View>
               )}

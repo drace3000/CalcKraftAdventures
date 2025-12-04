@@ -8,6 +8,7 @@ import '@/global.css';
 import '@/config/firebase';
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { NarrationProvider } from '@/contexts/NarrationContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
@@ -54,8 +55,10 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
-        <RootNavigator />
-        <StatusBar style="auto" />
+        <NarrationProvider>
+          <RootNavigator />
+          <StatusBar style="auto" />
+        </NarrationProvider>
       </AuthProvider>
     </ThemeProvider>
   );

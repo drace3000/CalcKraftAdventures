@@ -1,144 +1,220 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-import { useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
-import { auth, db } from '@/config/firebase';
-import { collection, getDocs, addDoc } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
+
+const heroBackground = require('@/assets/images/calckraft-login-v2.png');
 
 export default function HomeScreen() {
-  // Firebase connection test
-  useEffect(() => {
-    const testFirebase = async () => {
-      try {
-        console.log('🔥 Firebase Test Starting...');
-        console.log('🔥 Firebase Auth:', auth ? '✅ Connected' : '❌ Not connected');
-        console.log('🔥 Firestore DB:', db ? '✅ Connected' : '❌ Not connected');
-        console.log('🔥 Firebase App Name:', auth.app.name);
-        console.log('🔥 Firebase Project ID:', auth.app.options.projectId);
-        
-        // Test Firestore connection by creating a document in "Test" collection
-        try {
-          const testCollection = collection(db, 'Test');
-          
-          // Create a document with TestMain field
-          const docRef = await addDoc(testCollection, {
-            TestMain: 'This is a test text value'
-          });
-          
-          console.log('✅ Firestore write successful!');
-          console.log('📝 Document ID:', docRef.id);
-          console.log('📝 Collection: Test');
-          console.log('📝 Field: TestMain = "This is a test text value"');
-          
-          // Verify by reading it back
-          const snapshot = await getDocs(testCollection);
-          console.log('📖 Documents in Test collection:', snapshot.size);
-          snapshot.forEach((doc) => {
-            console.log('📄 Document:', doc.id, '=>', doc.data());
-          });
-        } catch (firestoreError: any) {
-          console.error('❌ Firestore test error:', firestoreError.message);
-          console.error('❌ Error code:', firestoreError.code);
-        }
-        
-        console.log('✅ Firebase initialization complete!');
-      } catch (error: any) {
-        console.error('❌ Firebase initialization error:', error.message);
-      }
-    };
-    
-    testFirebase();
-  }, []);
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const { userProfile, user, signOut } = useAuth();
+  const router = useRouter();
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const displayName = userProfile?.displayName || user?.email || 'Adventurer';
+  const joinedAt = userProfile?.createdAt
+    ? userProfile.createdAt.toLocaleDateString()
+    : 'Unknown';
+  const lastLogin = userProfile?.lastLoginAt
+    ? userProfile.lastLoginAt.toLocaleString()
+    : 'Just now';
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      router.replace('/(auth)/signin');
+    } catch (error) {
+      console.error('Failed to log out:', error);
+    }
+  };
+
+  return (
+    <ImageBackground source={heroBackground} style={styles.background} resizeMode="cover">
+      <View style={styles.overlay} />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.card}>
+          <View style={styles.headerRow}>
+            <Text style={styles.overline}>CalcKraft Adventures</Text>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
+              <Ionicons name="exit-outline" size={18} color="#4E342E" />
+              <Text style={styles.logoutText}>Log out</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.heading}>Welcome back, {displayName}!</Text>
+          <Text style={styles.body}>
+            Your crystal-powered quest tracker is ready. Pick a path below to continue crafting
+            knowledge spells, earn relics, and keep leveling up your hero.
+          </Text>
+
+          <View style={styles.statsRow}>
+            <View style={styles.statTile}>
+              <Ionicons name="ribbon" size={22} color="#f57c00" />
+              <Text style={styles.statLabel}>Joined</Text>
+              <Text style={styles.statValue}>{joinedAt}</Text>
+            </View>
+            <View style={styles.statTile}>
+              <Ionicons name="time" size={22} color="#0288d1" />
+              <Text style={styles.statLabel}>Last login</Text>
+              <Text style={styles.statValue}>{lastLogin}</Text>
+            </View>
+          </View>
+
+          <View style={styles.ctaColumn}>
+            <TouchableOpacity
+              style={[styles.primaryButton, styles.cta]}
+              activeOpacity={0.9}
+              onPress={() => router.push('/(tabs)/explore')}>
+              <Ionicons name="compass" size={22} color="#fff" style={styles.buttonIcon} />
+              <View>
+                <Text style={styles.buttonTitle}>Continue Quest</Text>
+                <Text style={styles.buttonHelper}>Jump into today’s featured challenge</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.secondaryButton, styles.cta]}
+              activeOpacity={0.9}
+              onPress={() => router.push('/theme-select')}>
+              <Ionicons name="sparkles" size={22} color="#4E342E" style={styles.buttonIcon} />
+              <View>
+                <Text style={styles.secondaryTitle}>Select A Hero Theme</Text>
+                <Text style={styles.buttonHelperDark}>Pick a theme & gear up for tomorrow</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  background: {
+    flex: 1,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  content: {
+    flexGrow: 1,
+    padding: 24,
+    paddingTop: 80,
+  },
+  card: {
+    backgroundColor: 'rgba(248,235,214,0.92)',
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 4,
+    borderColor: '#8D6E63',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  overline: {
+    textTransform: 'uppercase',
+    fontWeight: '800',
+    color: '#8D6E63',
+    letterSpacing: 2,
+    fontSize: 12,
+  },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#D7CCC8',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  logoutText: {
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4E342E',
+  },
+  heading: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#4E342E',
+    marginTop: 8,
+  },
+  body: {
+    color: '#5D4037',
+    marginTop: 12,
+    lineHeight: 20,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  statTile: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 2,
+    borderColor: '#D7CCC8',
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6D4C41',
+    marginTop: 6,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#3E2723',
+  },
+  ctaColumn: {
+    marginTop: 24,
+    gap: 12,
+  },
+  cta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+  },
+  primaryButton: {
+    backgroundColor: '#4CAF50',
+    borderWidth: 3,
+    borderColor: '#2E7D32',
+  },
+  secondaryButton: {
+    backgroundColor: '#ffe0b2',
+    borderWidth: 3,
+    borderColor: '#ffb74d',
+  },
+  buttonIcon: {
+    marginRight: 16,
+  },
+  buttonTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#fff',
+  },
+  secondaryTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#4E342E',
+  },
+  buttonHelper: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.9)',
+  },
+  buttonHelperDark: {
+    fontSize: 12,
+    color: '#4E342E',
   },
 });

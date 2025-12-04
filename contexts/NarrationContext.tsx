@@ -7,9 +7,11 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import Constants from 'expo-constants';
+import { Alert } from 'react-native';
 import { THEME_DEFINITION_MAP, THEME_DEFINITIONS, ThemeId } from '@/constants/themeData';
 import { synthesizeSpeech } from '@/services/elevenLabsClient';
+import { getThemeContent, ThemeContent } from '@/services/themeService';
+import { useAuth } from '@/contexts/AuthContext';
 
 type NarrationStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -21,21 +23,8 @@ type NarrationContextValue = {
 
 const NarrationContext = createContext<NarrationContextValue | undefined>(undefined);
 
-const getVoiceIdForTheme = (themeId: ThemeId) => {
-  const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string | undefined>;
-  switch (themeId) {
-    case 'blockland':
-      return extra.elevenLabsVoiceIdBlockland;
-    case 'princess':
-      return extra.elevenLabsVoiceIdPrincess ?? extra.elevenLabsVoiceIdBlockland;
-    case 'unicorn':
-      return extra.elevenLabsVoiceIdUnicorn ?? extra.elevenLabsVoiceIdBlockland;
-    default:
-      return undefined;
-  }
-};
-
 export const NarrationProvider = ({ children }: { children: React.ReactNode }) => {
+  const { userProfile, user } = useAuth();
   const [buffers, setBuffers] = useState<Record<ThemeId, ArrayBuffer | undefined>>(
     {} as Record<ThemeId, ArrayBuffer | undefined>,
   );
@@ -45,6 +34,70 @@ export const NarrationProvider = ({ children }: { children: React.ReactNode }) =
   const requestsRef = useRef<Record<ThemeId, Promise<ArrayBuffer | undefined>>>(
     {} as Record<ThemeId, Promise<ArrayBuffer | undefined>>,
   );
+  const themeResourceCacheRef = useRef<Record<ThemeId, ThemeContent | undefined>>(
+    {} as Record<ThemeId, ThemeContent | undefined>,
+  );
+  const themeResourceRequestsRef = useRef<Record<ThemeId, Promise<ThemeContent> | undefined>>(
+    {} as Record<ThemeId, Promise<ThemeContent> | undefined>,
+  );
+  const currentUserIdRef = useRef<string | null>(null);
+  const currentDisplayNameRef = useRef<string | null>(null);
+
+  // Get user's display name with fallback (never use email)
+  const getUserDisplayName = useCallback(() => {
+    return userProfile?.displayName || user?.displayName || 'Adventurer';
+  }, [userProfile, user]);
+
+  // Personalize narration text by replacing {name} placeholder
+  const personalizeNarration = useCallback(
+    (text: string): string => {
+      const displayName = getUserDisplayName();
+      return text.replace(/{name}/g, displayName);
+    },
+    [getUserDisplayName],
+  );
+
+  // Clear cached narrations when user or display name changes
+  useEffect(() => {
+    const currentUserId = user?.uid || null;
+    const currentDisplayName = getUserDisplayName();
+    
+    const userIdChanged = currentUserIdRef.current !== null && currentUserIdRef.current !== currentUserId;
+    const displayNameChanged = currentDisplayNameRef.current !== null && currentDisplayNameRef.current !== currentDisplayName;
+    
+    if (userIdChanged || displayNameChanged) {
+      // User or display name changed - clear all cached buffers and resources
+      setBuffers({} as Record<ThemeId, ArrayBuffer | undefined>);
+      themeResourceCacheRef.current = {} as Record<ThemeId, ThemeContent | undefined>;
+      setStatus({} as Record<ThemeId, NarrationStatus>);
+    }
+    
+    currentUserIdRef.current = currentUserId;
+    currentDisplayNameRef.current = currentDisplayName;
+  }, [user?.uid, getUserDisplayName]);
+
+  const ensureThemeResource = useCallback(async (themeId: ThemeId) => {
+    if (themeResourceCacheRef.current[themeId]) {
+      return themeResourceCacheRef.current[themeId]!;
+    }
+
+    if (!themeResourceRequestsRef.current[themeId]) {
+      themeResourceRequestsRef.current[themeId] = getThemeContent(themeId)
+        .then((resource) => {
+          themeResourceCacheRef.current[themeId] = resource;
+          return resource;
+        })
+        .finally(() => {
+          themeResourceRequestsRef.current[themeId] = undefined;
+        });
+    }
+
+    return themeResourceRequestsRef.current[themeId]!;
+  }, []);
+
+  const showErrorPopup = useCallback((message: string) => {
+    Alert.alert('Narration unavailable', message);
+  }, []);
 
   const prefetchNarration = useCallback(
     async (themeId: ThemeId) => {
@@ -64,35 +117,47 @@ export const NarrationProvider = ({ children }: { children: React.ReactNode }) =
 
       setStatus((prev) => ({ ...prev, [themeId]: 'loading' }));
 
-      const request = synthesizeSpeech(theme.narration, {
-        voiceId: getVoiceIdForTheme(theme.voicePreference ?? theme.id),
-        latencyOptimization: 1,
-      })
-        .then((buffer) => {
+      const runPrefetch = async () => {
+        try {
+          const resource = await ensureThemeResource(themeId);
+          // Personalize the narration text before synthesis
+          const personalizedText = personalizeNarration(resource.narration);
+
+          const buffer = await synthesizeSpeech(personalizedText, {
+            voiceId: resource.elevenLabsVoiceId,
+            latencyOptimization: 1,
+          });
           setBuffers((prev) => ({ ...prev, [themeId]: buffer }));
           setStatus((prev) => ({ ...prev, [themeId]: 'ready' }));
           return buffer;
-        })
-        .catch((error) => {
+        } catch (error) {
           console.error(`Failed to prefetch narration for ${themeId}`, error);
           setStatus((prev) => ({ ...prev, [themeId]: 'error' }));
+          showErrorPopup(
+            `We couldn't load the ${theme.title} narration. Please check your connection and try again.`,
+          );
           return undefined;
-        })
-        .finally(() => {
+        } finally {
           requestsRef.current[themeId] = undefined;
-        });
+        }
+      };
 
+      const request = runPrefetch();
       requestsRef.current[themeId] = request;
       return request;
     },
-    [buffers],
+    [buffers, ensureThemeResource, showErrorPopup, personalizeNarration],
   );
 
+  // Prefetch narrations when user and userProfile are available
   useEffect(() => {
-    THEME_DEFINITIONS.forEach((theme) => {
-      prefetchNarration(theme.id);
-    });
-  }, [prefetchNarration]);
+    if (user && userProfile !== null) {
+      // Wait for userProfile to load before prefetching to ensure correct display name
+      THEME_DEFINITIONS.forEach((theme) => {
+        void prefetchNarration(theme.id);
+      });
+    }
+  }, [prefetchNarration, user, userProfile]);
 
   const value = useMemo(
     () => ({
